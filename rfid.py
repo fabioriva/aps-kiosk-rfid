@@ -13,6 +13,16 @@ logging.getLogger(__name__)
 
 GPIO.setwarnings(False)
 
+CHANNEL = 2
+
+def buzzer():
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(CHANNEL, GPIO.OUT)
+    # GPIO.output(CHANNEL, GPIO.HIGH)
+    sleep(0.25)
+    GPIO.output(CHANNEL, GPIO.LOW)
+    GPIO.cleanup()
+
 
 class Rfid():
     def __init__(self, BLOCK_ADDRS, TRAILER_BLOCK):
@@ -33,7 +43,11 @@ class Rfid():
         logging.info(f'Tag ID {id}, Data: {text}')
         r = requests.post(os.getenv('API_URL'), json={"id": id})
         logging.info("response: %s" % (r.text))
+        buzzer()        
+
 
     def write(self, text):
         self.reader.write(text)
         logging.info(f'Tag written: {text}')
+
+
