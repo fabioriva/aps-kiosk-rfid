@@ -15,6 +15,7 @@ GPIO.setwarnings(False)
 
 CHANNEL = 2
 
+
 def buzzer():
     GPIO.setmode(GPIO.BCM)
     GPIO.setup(CHANNEL, GPIO.OUT)
@@ -43,11 +44,8 @@ class Rfid():
         logging.info(f'Tag ID {id}, Data: {text}')
         r = requests.post(os.getenv('API_URL'), json={"id": id})
         logging.info("response: %s" % (r.text))
-        buzzer()        
-
+        buzzer()
 
     def write(self, text):
         self.reader.write(text)
         logging.info(f'Tag written: {text}')
-
-
