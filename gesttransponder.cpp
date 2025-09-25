@@ -541,10 +541,11 @@ void* GestTransponder(void* args) {
 	struct timespec TimerResetTransponderMs;
 	uint8_t i = 0, OldTesseraPresente = false;
 	char tempstr[10];
+	char log_str[256];
 	static uint8_t TesseraOk = 0;
 
 	delay(1);
-	printf("Inizializza Transponder\r\n");
+	LOG_I((char*)"Inizializza Transponder");
 	SetTimeout(&TimerLetturaTransponderMs, 1);
 	pthread_mutex_lock(&mutex_transp);
 #if(MFRC522 == true)
@@ -558,40 +559,37 @@ void* GestTransponder(void* args) {
 			init_ok = true;
 		else
 		{
-			printf("Transponder NON Ok!!!\r\n");
+			LOG_E((char*)"Transponder NON Ok!!!");
 			delay(3000);
 		}
 	}
 #endif
 	pthread_mutex_unlock(&mutex_transp);
-	printf("Transponder Ok\r\n");
+	LOG_I((char*)"Transponder Ok\r\n");
 
 	/*
-	while(true)
-	{
-		printf("thread i=%d",i);
-		i++;
-		sleep(3);
-	}
-	*/
-	/*
+		char str[128], tempstr[10];
 		while(true)
 		{
 			if(PICC_IsNewCardPresent() == true)	// card presente
 			{
-				printf("1");
+				strcpy(str, "1");
 				if(PICC_ReadCardSerial() == true)
 				{
-					printf(" ");
+					strcat(str," ");
 					for(i=0;i<mfrc522.uid.size;i++)
 					{
-						printf("%02x", mfrc522.uid.uidByte[i]);
+					sprintf(tempstr, "%02x", mfrc522.uid.uidByte[i]);
+					strcat(str, tempstr);;
 					}
 				}
 				PICC_ReadCardSerial();
 			}
-			else	printf("0");
-			printf(" %x\r\n", PCD_GetAntennaGain());
+			else	strcat(str, "0");
+			strcat(str, "Ant:");
+			sprintf(tempstr, "%02x", PCD_GetAntennaGain());
+			strcat(str, tempstr);
+			LOG_I(str);
 			PICC_HaltA();		// Halt PICC
 			PCD_StopCrypto1();	// Stop encryption on PCD
 			sleep(1);
@@ -619,24 +617,24 @@ void* GestTransponder(void* args) {
 							SetTimeout(&TimerResetTransponderMs, TEMPO_RESET_TRANSPONDER_MS);
 							TesseraOk = true;
 							BloccoDatiIn.Struttura.FlagTesseraPresente = true;
-							printf("Uid: ");
+							strcpy(log_str, "Uid: ");
 							strcpy(DataToSend, "Rfid ");
 							for (i = 0; i < BloccoDatiIn.Struttura.DimUidTessera; i++)
 							{
-								printf("%02X", BloccoDatiIn.Struttura.Uid[i]);
 								sprintf(tempstr, "%02X", BloccoDatiIn.Struttura.Uid[i]);
 								strcat(DataToSend, tempstr);
+								strcat(log_str, tempstr);
 							}
-							printf("   Codice: ");
+							strcat(log_str, "   Codice: ");
 							strcat(DataToSend, " ");
 							for (i = 0; i < DIM_CODICE_TESSERA; i++)
 							{
-								printf("%02X", BloccoDatiIn.Struttura.CodiceTessera[i]);
 								sprintf(tempstr, "%02X", BloccoDatiIn.Struttura.CodiceTessera[i]);
 								strcat(DataToSend, tempstr);
+								strcat(log_str, tempstr);
 							}
-							printf("\r\n");
-							ComponiPost(DataToSend);			
+							LOG_I(log_str);
+							ComponiPost(DataToSend);
 							FlagNewTessera = true;
 							BeepTessera();
 						}
@@ -677,19 +675,21 @@ void* GestTransponder(void* args) {
 			if (FlagNewWrite == true)
 			{
 				FlagNewWrite = false;
-				printf("Write: ");
+				strcpy(log_str, "Write: ");
 				for (i = 0; i < NUM_BYTE_TESSERA; i++)
 				{
-					printf("%c", BufferWrite[i]);
+					char tempstr[10];
+					sprintf(tempstr, "%02x", BufferWrite[i]);
+					strcpy(log_str, tempstr);
 				}
-				printf("\n");
+				LOG_I(log_str);
 				if (IsWriteDatiTransponder(BufferWrite) == true)
 				{
-					printf("\nWrite Ok!\n");
+					LOG_I((char*)"Write Ok!");
 				}
 				else
 				{
-					printf("\nWrite NON OK!!!");
+					LOG_W((char*)"Write NON OK!!!");
 				}
 				OldTesseraPresente = FALSE;     // dopo scrittura ritenta lettura
 			}

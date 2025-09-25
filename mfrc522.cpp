@@ -283,7 +283,7 @@ void PCD_Init()
 		if (i > 10)
 		{
 			i = 0;
-			printf("Transponder NON inizializzato\r\n");
+			LOG_E("Transponder NON inizializzato");
 		}
 	}
 
@@ -303,7 +303,7 @@ void PCD_Init()
 
 void PCD_ReInit(void)
 {
-	printf("Transponder Reinizializzato\r\n");
+	LOG_I("Transponder Reinizializzato");
 	SPIInit();
 	digitalWrite(CHIP_POWER, LOW);
 	delay(100);

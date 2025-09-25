@@ -4,3 +4,6 @@ rfid
 # Env
 .env
 .env.*
+/obj
+/bin
+/.vs

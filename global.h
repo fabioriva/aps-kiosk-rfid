@@ -16,9 +16,13 @@ extern int8_t CheckTimeoutExpired(struct timespec timeout);
 extern uint8_t NibbleToInt(uint8_t nh, uint8_t  nl);
 extern void ResetDatiInput(void);
 extern void BeepTessera(void);
-extern void ComponiPost(char *content);
+extern void ComponiPost(char* content);
 extern int http_post(const char* url, uint16_t portno, const char* data);
 extern int http_get(const char* host, uint16_t port, const char* params);
+//------------------------------------------------------------------------------
+extern void LOG_I(char* str);
+extern void LOG_W(char* str);
+extern void LOG_E(char* str);
 //------------------------------------------------------------------------------
 #define DIM_BLOCCO_DATI_IN      32
 //------------------------------------------------------------------------------

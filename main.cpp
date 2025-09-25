@@ -1,8 +1,4 @@
-﻿
-// trovare corrispondenza pin
-// provare scrittura
-
-//--------------------------------------------------------------------------------------------------
+﻿//--------------------------------------------------------------------------------------------------
 #include "global.h"
 //--------------------------------------------------------------------------------------------------
 int main(void)
@@ -13,13 +9,13 @@ int main(void)
 	wiringPiSetup();
 
 	pinMode(BUZZER, OUTPUT);
-	digitalWrite(BUZZER, HIGH); // buzzer attivo alto
+	digitalWrite(BUZZER, HIGH); // buzzer attivo basso
 
 	ResetDatiInput();
 
 	ret = pthread_create(&id, NULL, &GestTransponder, NULL);
 	if (ret != 0) {
-		printf("Thread Transponder Not created!\r\n");
+		LOG_E((char*)"Thread Transponder Not created!");
 	}
 
 	FlagNewTessera = false;
@@ -37,8 +33,11 @@ int main(void)
 	{
 		if (FlagNewTessera == true)
 		{
-			printf("Send: %s\n", DataToSend);
-			//http_get("127.0.0.1", 8080, DataToSend);
+			char log_str[128];
+			strcpy(log_str, "Send:");
+			strcat(log_str, DataToSend);
+			LOG_I(log_str);
+			//http_get(API_URL, API_PORT, DataToSend);
 			http_post(API_URL, API_PORT, DataToSend);
 			FlagNewTessera = false;
 		}

@@ -1059,10 +1059,11 @@ void mfrc630_MF_deauth()
 //------------------------------------------------------------------------------
 void PCD_ReInit(void)
 {
-	printf("Transponder Reinizializzato\r\n");
+	LOG_I((char*)"Transponder Reinizializzato");
 	// 120Ms
 	if (mfrc630_iso_14443A_init() == TRUE)
-		printf("   Transponder OK\r\n");
+		LOG_I((char*)"   Transponder OK");
+	else LOG_E((char*)"Transponder NON OK!");
 	mfrc630_MF_deauth();
 }
 //-------------------------------------------------------------------------------------------------
