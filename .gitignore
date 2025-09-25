@@ -7,3 +7,8 @@ rfid
 /obj
 /bin
 /.vs
+
+# Visual Studio
+*.sln
+*.vcxproj
+*.vcxproj.*
