@@ -12,13 +12,13 @@ static void Nop(void)
 static void SPIInit(void)
 {
 	wiringPiSetup();
-	pullUpDnControl(CHIP_POWER, PUD_OFF);
+	pullUpDnControl(CHIP_POWERDOWN, PUD_UP);
 	pullUpDnControl(SPI_SCK, PUD_UP);
 	pullUpDnControl(SPI_MISO, PUD_UP);
 	pullUpDnControl(SPI_MOSI, PUD_UP);
 	pullUpDnControl(SPI_CS, PUD_UP);
-	pinMode(CHIP_POWER, OUTPUT);   Nop();
-	digitalWrite(CHIP_POWER, LOW);
+	pinMode(CHIP_POWERDOWN, OUTPUT);   Nop();
+	digitalWrite(CHIP_POWERDOWS, HIGH);
 	delay(10);
 	pinMode(SPI_SCK, OUTPUT);   Nop();
 	pinMode(SPI_MISO, INPUT);   Nop();
@@ -1075,9 +1075,9 @@ uint8_t mfrc630_iso_14443A_init()
 
 	SPIInit();
 
-	digitalWrite(CHIP_POWER, LOW);
+	digitalWrite(CHIP_POWERDOWN, HIGH);
 	delay(100);
-	digitalWrite(CHIP_POWER, HIGH);
+	digitalWrite(CHIP_POWERDOWN, LOW);
 	delay(10);
 
 	version = mfrc630_read_reg(MFRC630_REG_VERSION);
@@ -1146,8 +1146,9 @@ uint8_t mfrc630_iso_14443A_init()
 	mfrc630_write_reg(MFRC630_REG_FRAMECON, 0xCF);             // Start symbol=Symbol2, Stop symbol=Symbol3
 	mfrc630_write_reg(MFRC630_REG_RXCTRL, 0x04);               // Set Rx Baudrate 106 kBaud
 
-	mfrc630_write_reg(MFRC630_REG_RXTHRESHOLD, 0x32);          // Set min-levels for Rx and phase shift
-	mfrc630_write_reg(MFRC630_REG_RXANA, 0x00);
+	mfrc630_write_reg(MFRC630_REG_RXTHRESHOLD, 0x32);        // Set min-levels for Rx and phase shift
+	//mfrc630_write_reg(MFRC630_REG_RXANA, 0x0A);			 // rcv_gain = 2, rcv_hpcf = 2 -> fl=157 kHz, fu=2.6MHz, gain=49DB, bandwith=2.4MHz
+	mfrc630_write_reg(MFRC630_REG_RXANA, 0x0B);				 // rcv_gain = 3, rcv_hpcf = 2 -> fl=272 kHz, fu=3.0MHz, gain=41DB, bandwith=2.7MHz
 	mfrc630_write_reg(MFRC630_REG_RXWAIT, 0x90);             // Set Rx waiting time
 	mfrc630_write_reg(MFRC630_REG_TXWAITCTRL, 0xC0);
 	mfrc630_write_reg(MFRC630_REG_TXWAITLO, 0x0B);

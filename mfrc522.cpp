@@ -11,13 +11,13 @@ static void Nop(void)
 static void SPIInit(void)
 {
 	wiringPiSetup();
-	pullUpDnControl(CHIP_POWER, PUD_OFF);
+	pullUpDnControl(CHIP_POWERDOWN, PUD_UP);
 	pullUpDnControl(SPI_SCK, PUD_UP);
 	pullUpDnControl(SPI_MISO, PUD_UP);
 	pullUpDnControl(SPI_MOSI, PUD_UP);
 	pullUpDnControl(SPI_CS, PUD_UP);
-	pinMode(CHIP_POWER, OUTPUT);   Nop();
-	digitalWrite(CHIP_POWER, LOW);
+	pinMode(CHIP_POWERDOWN, OUTPUT);   Nop();
+	digitalWrite(CHIP_POWERDOWN, HIGH);
 	delay(10);
 	pinMode(SPI_SCK, OUTPUT);   Nop();
 	pinMode(SPI_MISO, INPUT);   Nop();
@@ -273,9 +273,9 @@ void PCD_Init()
 
 	while (resetok == FALSE)
 	{
-		digitalWrite(CHIP_POWER, LOW);
-		delay(100);
 		digitalWrite(CHIP_POWER, HIGH);
+		delay(100);
+		digitalWrite(CHIP_POWER, LOW);
 		delay(10);
 		if (PCD_Reset() == TRUE)
 			resetok = TRUE;

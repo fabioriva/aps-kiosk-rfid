@@ -16,7 +16,7 @@ extern int8_t CheckTimeoutExpired(struct timespec timeout);
 extern uint8_t NibbleToInt(uint8_t nh, uint8_t  nl);
 extern void ResetDatiInput(void);
 extern void BeepTessera(void);
-extern void ComponiPost(char* content);
+extern void ComponiPost(char* content, size_t max_content_len);
 extern int http_post(const char* url, uint16_t portno, const char* data);
 extern int http_get(const char* host, uint16_t port, const char* params);
 //------------------------------------------------------------------------------

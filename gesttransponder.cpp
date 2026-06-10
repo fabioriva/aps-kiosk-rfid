@@ -599,10 +599,12 @@ void* GestTransponder(void* args) {
 	while (true)
 	{
 		delay(25);
-		if (IsTesseraPresente() != OldTesseraPresente)
+		byte transponder_attuale = IsTesseraPresente(); // Leggi l'antenna UNA sola volta
+
+		if (transponder_attuale != OldTesseraPresente)
 		{
 			TesseraOk = false;
-			OldTesseraPresente = IsTesseraPresente();
+			OldTesseraPresente = transponder_attuale; // Usa la variabile salvata
 			SetTimeout(&TimerResetTransponderMs, TEMPO_RESET_TRANSPONDER_MS);
 
 			if (OldTesseraPresente == true)
@@ -634,7 +636,7 @@ void* GestTransponder(void* args) {
 								strcat(log_str, tempstr);
 							}
 							LOG_I(log_str);
-							ComponiPost(DataToSend);
+							ComponiPost(DataToSend, 250);
 							FlagNewTessera = true;
 							BeepTessera();
 						}

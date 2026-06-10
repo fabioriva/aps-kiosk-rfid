@@ -36,7 +36,7 @@
 #define SPI_MISO			13      // GPIO09=13     pin 21
 #define SPI_MOSI			12      // GPIO10=12     pin 19
 #define SPI_CS				10      // GPIO08=10     pin 24
-#define CHIP_POWER			6       // GPIO25=6      pin 22
+#define CHIP_POWERDOWN		6       // GPIO25=6      pin 22
 #define BUZZER				8       // GPIO02=8      pin 3
 //------------------------------------------------------------------------------
 #define API_URL "http://localhost/api/kiosk/tag"
