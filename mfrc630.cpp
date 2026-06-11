@@ -18,7 +18,7 @@ static void SPIInit(void)
 	pullUpDnControl(SPI_MOSI, PUD_UP);
 	pullUpDnControl(SPI_CS, PUD_UP);
 	pinMode(CHIP_POWERDOWN, OUTPUT);   Nop();
-	digitalWrite(CHIP_POWERDOWS, HIGH);
+	digitalWrite(CHIP_POWERDOWN, HIGH);
 	delay(10);
 	pinMode(SPI_SCK, OUTPUT);   Nop();
 	pinMode(SPI_MISO, INPUT);   Nop();
