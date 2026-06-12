@@ -1,20 +1,26 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
-    <RemoteDebuggingTarget>892298722;192.168.1.231 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <RemoteDebuggingTarget>1023737665;192.168.1.202 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
     <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
-    <RemoteTarget>1024053851;192.168.1.219 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteTarget>1023737665;192.168.1.202 (username=, port=22, authentication=Password)</RemoteTarget>
   </PropertyGroup>
   <PropertyGroup>
     <ShowAllFiles>false</ShowAllFiles>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
-    <RemoteTarget>1024053851;192.168.1.219 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteTarget>1023737665;192.168.1.202 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteDebuggingTarget>1023737665;192.168.1.202 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
-    <RemoteTarget>1024053851;192.168.1.219 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteTarget>1023737665;192.168.1.202 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteDebuggingTarget>1023737665;192.168.1.202 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
-    <RemoteTarget>1024053851;192.168.1.219 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteTarget>1023737665;192.168.1.202 (username=, port=22, authentication=Password)</RemoteTarget>
+    <RemoteDebuggingTarget>1023737665;192.168.1.202 (username=, port=22, authentication=Password)</RemoteDebuggingTarget>
+    <DebuggerFlavor>LinuxDebugger</DebuggerFlavor>
   </PropertyGroup>
 </Project>

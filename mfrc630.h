@@ -162,7 +162,7 @@ void mfrc630_write_fifo(const uint8_t* data, uint16_t len);
 		   are read from the chip anyway, these bytes should not be used. (The returned bytes from an empty FIFO are
 		   often identical to the last valid byte that was read from it.)
  */
-void mfrc630_read_fifo(uint8_t* rx, uint16_t len);
+void mfrc630_read_fifo(uint8_t* rx, uint16_t len, uint16_t max_len);
 //! @}
 
 // ---------------------------------------------------------------------------

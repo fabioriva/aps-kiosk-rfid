@@ -11,7 +11,7 @@ void SetTimeout(struct timespec* timeout, int32_t timeout_ms)
 	int32_t val_nsec;
 	struct timespec now;
 	clock_gettime(CLOCK_REALTIME, &now);
-	val_nsec = (now.tv_nsec + ((timeout_ms % 1000) * 1000000));
+	val_nsec = ((int32_t)now.tv_nsec + ((timeout_ms % 1000) * 1000000));
 	if (val_nsec >= 1000000000)
 	{
 		timeout->tv_nsec = (val_nsec % 1000000000);
@@ -95,7 +95,7 @@ uint8_t NibbleToInt(uint8_t nh, uint8_t nl)
 void BeepTessera(void)
 {
 	// buzzer attivo basso
-	digitalWrite(BUZZER, LOW);
+	//digitalWrite(BUZZER, LOW);
 	delay(250);
 	digitalWrite(BUZZER, HIGH);
 }

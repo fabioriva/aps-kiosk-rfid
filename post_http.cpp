@@ -15,6 +15,7 @@ void ComponiPost(char* content, size_t max_content_len) {
 	str_uid[0] = '\0';
 	// Protezione: interrompi se DimUidTessera è troppo grande per il nostro buffer str_uid
 	int max_uid_loops = BloccoDatiIn.Struttura.DimUidTessera;
+	if (max_uid_loops < 0) max_uid_loops = 0;
 	if (max_uid_loops > 31) max_uid_loops = 31; // 31 * 2 = 62 caratteri + \0
 
 	for (i = 0; i < max_uid_loops; i++)
@@ -40,7 +41,8 @@ void ComponiPost(char* content, size_t max_content_len) {
 }
 
 int http_post(const char* url, uint16_t portno, const char* content) {
-	int sockfd, n;
+	int sockfd;
+	long int n;
 	struct sockaddr_in serv_addr;
 	struct hostent* server;
 
@@ -67,6 +69,15 @@ int http_post(const char* url, uint16_t portno, const char* content) {
 	if (sockfd < 0) {
 		LOG_E((char*)"Errore apertura socket");
 		return 1;
+	}
+
+	struct timeval timeout;
+	timeout.tv_sec = 2;  // 2 secondi di timeout
+	timeout.tv_usec = 0;
+
+	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+		LOG_E((char*)"Impossibile impostare il timeout sul socket");
+		// Puoi decidere se uscire o continuare, di solito conviene continuare
 	}
 
 	LOG_I((char*)"Hostname:");
@@ -137,7 +148,8 @@ int http_post(const char* url, uint16_t portno, const char* content) {
 //--------------------------------------------------------------------------------------------------
 
 int http_get(const char* host, uint16_t port, const char* data) {
-	int sockfd, n;
+	int sockfd;
+	long int n;
 	struct sockaddr_in serv_addr;
 	struct hostent* server;
 	char request[4096];
@@ -146,6 +158,15 @@ int http_get(const char* host, uint16_t port, const char* data) {
 	if (sockfd < 0) {
 		LOG_E((char*)"Errore apertura socket");
 		return 1;
+	}
+
+	struct timeval timeout;
+	timeout.tv_sec = 2;  // 2 secondi di timeout
+	timeout.tv_usec = 0;
+
+	if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+		LOG_E((char*)"Impossibile impostare il timeout sul socket");
+		// Puoi decidere se uscire o continuare, di solito conviene continuare
 	}
 
 	server = gethostbyname(host);
@@ -157,7 +178,7 @@ int http_get(const char* host, uint16_t port, const char* data) {
 
 	memset(&serv_addr, 0, sizeof(serv_addr));
 	serv_addr.sin_family = AF_INET;
-	memcpy((char*)server->h_addr, (char*)&serv_addr.sin_addr.s_addr, server->h_length);
+	memcpy(&serv_addr.sin_addr.s_addr, server->h_addr, server->h_length);
 	serv_addr.sin_port = htons(port);
 
 	if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {

@@ -18,7 +18,7 @@ static void SPIInit(void)
 	pullUpDnControl(SPI_MOSI, PUD_UP);
 	pullUpDnControl(SPI_CS, PUD_UP);
 	pinMode(CHIP_POWERDOWN, OUTPUT);   Nop();
-	digitalWrite(CHIP_POWERDOWS, HIGH);
+	digitalWrite(CHIP_POWERDOWN, HIGH);
 	delay(10);
 	pinMode(SPI_SCK, OUTPUT);   Nop();
 	pinMode(SPI_MISO, INPUT);   Nop();
@@ -148,12 +148,16 @@ void mfrc630_write_fifo(const uint8_t* data, uint16_t len)
 	}
 }
 //------------------------------------------------------------------------------
-void mfrc630_read_fifo(uint8_t* rx, uint16_t len)
+void mfrc630_read_fifo(uint8_t* rx, uint16_t len, uint16_t max_len)
 {
 	uint8_t read_instruction[] = { (MFRC630_REG_FIFODATA << 1) | 0x01, (MFRC630_REG_FIFODATA << 1) | 0x01 };
 	uint8_t read_finish[] = { 0 };
 	uint8_t discard[2];
 	uint16_t i;
+	if (len > max_len) {
+		len = max_len;
+	}
+	if (len == 0) return;
 	// this is less than ideal, since we have to call the transfer method multiple times.
 	mfrc630_SPI_select();
 	mfrc630_SPI_transfer(read_instruction, discard, 1);
@@ -285,6 +289,40 @@ uint8_t mfrc630_irq1()
 	return mfrc630_read_reg(MFRC630_REG_IRQ1);
 }
 //------------------------------------------------------------------------------
+
+uint8_t mfrc630_wait_irq(uint8_t timer_num, const char* context_name)
+{
+	uint8_t irq1_value = 0;
+	uint32_t safety_counter = 0;
+	char error_msg[256];
+
+	// Usa direttamente timer_for_timeout senza recuperarlo dai parametri
+	while (!(irq1_value & (1 << timer_num)))
+	{
+		irq1_value = mfrc630_irq1();
+
+		// Se il chip dichiara che l'operazione globale è conclusa, usciamo con successo
+		if (irq1_value & MFRC630_IRQ1_GLOBAL_IRQ) {
+			break;
+		}
+
+		// Rilascia la CPU su Linux (bit-banging software)
+		delayMicroseconds(50);
+
+		// Watchdog software anti-congelamento
+		safety_counter++;
+		if (safety_counter > 500)	// circa 25Ms
+		{
+			snprintf(error_msg, sizeof(error_msg), "Timeout di sicurezza software in [%s]!", context_name);
+			LOG_E(error_msg);
+			break;
+		}
+	}
+
+	return irq1_value;
+}
+//------------------------------------------------------------------------------
+
 /*uint8_t mfrc630_transfer_E2_page(uint8_t* dest, uint8_t page)
 {
 		uint8_t res;
@@ -446,7 +484,7 @@ uint16_t mfrc630_iso14443a_REQA()
 //------------------------------------------------------------------------------
 uint16_t mfrc630_iso14443a_WUPA_REQA(uint8_t instruction)
 {
-	uint8_t irq1_value, irq0, rx_len;
+	uint8_t irq0, rx_len;
 	uint8_t res_b[2];
 	// configure a timeout timer.
 	uint8_t timer_for_timeout = 0;
@@ -489,14 +527,7 @@ uint16_t mfrc630_iso14443a_WUPA_REQA(uint8_t instruction)
 	// Go into send, then straight after in receive.
 	mfrc630_cmd_transceive(send_req, 1);
 	MFRC630_PRINTF("Sending REQA\n");
-	// block until we are done
-	irq1_value = 0;
-	while (!(irq1_value & (1 << timer_for_timeout))) {
-		irq1_value = mfrc630_irq1();
-		if (irq1_value & MFRC630_IRQ1_GLOBAL_IRQ) {  // either ERR_IRQ or RX_IRQ
-			break;  // stop polling irq1 and quit the timeout loop.
-		}
-	}
+	mfrc630_wait_irq(timer_for_timeout, "Sending REQA");
 	MFRC630_PRINTF("After waiting for answer\n");
 	mfrc630_cmd_idle();
 
@@ -511,7 +542,7 @@ uint16_t mfrc630_iso14443a_WUPA_REQA(uint8_t instruction)
 
 	MFRC630_PRINTF("rx_len: %hhd\n", rx_len);
 	if (rx_len == 2) {  // ATQA should answer with 2 bytes.
-		mfrc630_read_fifo(res_b, rx_len);
+		mfrc630_read_fifo(res_b, rx_len, 2);
 
 		MFRC630_PRINTF("ATQA answer: ");
 		mfrc630_print_block(res_b, 2);
@@ -525,7 +556,7 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 {
 	uint8_t timer_for_timeout, cascade_level, message_length, collision_n;
 	uint8_t irq0, error, coll, rxalign, rx_len, buf[5], collision_pos, choice_pos, selection;
-	uint8_t rbx, bcc_val, bcc_calc, irq1_value, irq0_value, sak_len, sak_value, UIDn;
+	uint8_t rbx, bcc_val, bcc_calc, irq0_value, sak_len, sak_value, UIDn;
 
 	mfrc630_cmd_idle();
 	// mfrc630_AN1102_recommended_registers_no_transmitter(MFRC630_PROTO_ISO14443A_106_MILLER_MANCHESTER);
@@ -621,17 +652,7 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 			MFRC630_PRINTF("\n");
 
 			mfrc630_cmd_transceive(send_req, message_length);
-
-
-			// block until we are done
-			irq1_value = 0;
-			while (!(irq1_value & (1 << timer_for_timeout))) {
-				irq1_value = mfrc630_irq1();
-				// either ERR_IRQ or RX_IRQ or Timer
-				if (irq1_value & MFRC630_IRQ1_GLOBAL_IRQ) {
-					break;  // stop polling irq1 and quit the timeout loop.
-				}
-			}
+			mfrc630_wait_irq(timer_for_timeout, "Select transceive");
 			mfrc630_cmd_idle();
 
 			// next up, we have to check what happened.
@@ -702,8 +723,8 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 
 			// read the UID Cln so far from the buffer.
 			rx_len = uint8_t(mfrc630_fifo_length());
-
-			mfrc630_read_fifo(buf, rx_len < 5 ? rx_len : 5);
+			uint8_t eff_len = rx_len < 5 ? rx_len : 5;
+			mfrc630_read_fifo(buf, rx_len, eff_len);
 
 			MFRC630_PRINTF("Fifo %hhd long: ", rx_len);
 			mfrc630_print_block(buf, rx_len);
@@ -762,14 +783,7 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 		mfrc630_print_block(send_req, message_length);
 		MFRC630_PRINTF("\n");
 
-		// Block until we are done...
-		irq1_value = 0;
-		while (!(irq1_value & (1 << timer_for_timeout))) {
-			irq1_value = mfrc630_irq1();
-			if (irq1_value & MFRC630_IRQ1_GLOBAL_IRQ) {  // either ERR_IRQ or RX_IRQ
-				break;  // stop polling irq1 and quit the timeout loop.
-			}
-		}
+		mfrc630_wait_irq(timer_for_timeout, "Select send_req");
 		mfrc630_cmd_idle();
 
 		// Check the source of exiting the loop.
@@ -788,7 +802,7 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 		if (sak_len != 1) {
 			return 0;
 		}
-		mfrc630_read_fifo(&sak_value, sak_len);
+		mfrc630_read_fifo(&sak_value, sak_len, 1);
 
 		MFRC630_PRINTF("SAK answer: ");
 		mfrc630_print_block(&sak_value, 1);
@@ -856,16 +870,7 @@ uint8_t mfrc630_MF_auth(const uint8_t* uid, uint8_t key_type, uint8_t block)
 
 	// start the authentication procedure.
 	mfrc630_cmd_auth(key_type, block, uid);
-
-	// block until we are done
-	while (!(irq1_value & (1 << timer_for_timeout)))
-	{
-		irq1_value = mfrc630_irq1();
-		if (irq1_value & MFRC630_IRQ1_GLOBAL_IRQ) {
-			break;  // stop polling irq1 and quit the timeout loop.
-		}
-	}
-
+	irq1_value = mfrc630_wait_irq(timer_for_timeout, "MF Auth");
 	if (irq1_value & (1 << timer_for_timeout)) {
 		// this indicates a timeout
 		return 0;  // we have no authentication
@@ -910,14 +915,7 @@ uint8_t mfrc630_MF_read_block(uint8_t block_address, uint8_t* dest)
 
 	// Go into send, then straight after in receive.
 	mfrc630_cmd_transceive(send_req, 2);
-
-	// block until we are done
-	while (!(irq1_value & (1 << timer_for_timeout))) {
-		irq1_value = mfrc630_irq1();
-		if (irq1_value & MFRC630_IRQ1_GLOBAL_IRQ) {
-			break;  // stop polling irq1 and quit the timeout loop.
-		}
-	}
+	irq1_value = mfrc630_wait_irq(timer_for_timeout, "Mifare Read Block");
 	mfrc630_cmd_idle();
 
 	if (irq1_value & (1 << timer_for_timeout)) {
@@ -934,7 +932,7 @@ uint8_t mfrc630_MF_read_block(uint8_t block_address, uint8_t* dest)
 	// all seems to be well...
 	buffer_length = uint8_t(mfrc630_fifo_length());
 	rx_len = (buffer_length <= 16) ? buffer_length : 16;
-	mfrc630_read_fifo(dest, rx_len);
+	mfrc630_read_fifo(dest, rx_len, 16);
 	return rx_len;
 }
 //------------------------------------------------------------------------------
@@ -971,14 +969,7 @@ uint8_t mfrc630_MF_write_block(uint8_t block_address, const uint8_t* source)
 
 	// Go into send, then straight after in receive.
 	mfrc630_cmd_transceive(send_req, 2);
-
-	// block until we are done
-	while (!(irq1_value & (1 << timer_for_timeout))) {
-		irq1_value = mfrc630_irq1();
-		if (irq1_value & MFRC630_IRQ1_GLOBAL_IRQ) {
-			break;  // stop polling irq1 and quit the timeout loop.
-		}
-	}
+	irq1_value = mfrc630_wait_irq(timer_for_timeout, "Mifare Write (Stadio 1 ACK)");
 	mfrc630_cmd_idle();
 
 	// check if the first stage was successful:
@@ -995,7 +986,7 @@ uint8_t mfrc630_MF_write_block(uint8_t block_address, const uint8_t* source)
 	if (buffer_length != 1) {
 		return 0;
 	}
-	mfrc630_read_fifo(&res, 1);
+	mfrc630_read_fifo(&res, 1, 1);
 	if (res != MFRC630_MF_ACK) {
 		return 0;
 	}
@@ -1003,17 +994,12 @@ uint8_t mfrc630_MF_write_block(uint8_t block_address, const uint8_t* source)
 	mfrc630_clear_irq0();  // clear irq0
 	mfrc630_clear_irq1();  // clear irq1
 
+	// FIX: Forza l'allineamento dati corretto prima dell'invio del payload da 16 byte
+	mfrc630_write_reg(MFRC630_REG_TXDATANUM, 0x08 | MFRC630_TXDATANUM_DATAEN);
+
 	// go for the second stage.
 	mfrc630_cmd_transceive(source, 16);
-
-	// block until we are done
-	while (!(irq1_value & (1 << timer_for_timeout))) {
-		irq1_value = mfrc630_irq1();
-		if (irq1_value & MFRC630_IRQ1_GLOBAL_IRQ) {
-			break;  // stop polling irq1 and quit the timeout loop.
-		}
-	}
-
+	irq1_value = mfrc630_wait_irq(timer_for_timeout, "Mifare Write (Stadio 2 DATA)");
 	mfrc630_cmd_idle();
 
 	if (irq1_value & (1 << timer_for_timeout)) {
@@ -1030,7 +1016,7 @@ uint8_t mfrc630_MF_write_block(uint8_t block_address, const uint8_t* source)
 	if (buffer_length != 1) {
 		return 0;
 	}
-	mfrc630_read_fifo(&res, 1);
+	mfrc630_read_fifo(&res, 1, 1);
 	if (res == MFRC630_MF_ACK) {
 		return 16;  // second stage was responded with ack! Write successful.
 	}
@@ -1059,11 +1045,26 @@ void mfrc630_MF_deauth()
 //------------------------------------------------------------------------------
 void PCD_ReInit(void)
 {
-	LOG_I((char*)"Transponder Reinizializzato");
+	char time_buffer[40], temp_str[80];
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	struct tm* tm_info = localtime(&tv.tv_sec);
+	strftime(time_buffer, sizeof(time_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+	sprintf(temp_str, "%s - %s", time_buffer, "Transponder Reinizializzato");
+	LOG_I((char*)temp_str);
 	// 120Ms
 	if (mfrc630_iso_14443A_init() == TRUE)
 		LOG_I((char*)"   Transponder OK");
-	else LOG_E((char*)"Transponder NON OK!");
+	else {
+		// se errore prova una seconda volta
+		LOG_E((char*)"Transponder NON OK!");
+		delay(3000);
+		if (mfrc630_iso_14443A_init() == TRUE)
+			LOG_I((char*)"   Transponder OK");
+		else {
+			LOG_E((char*)"Transponder NON OK!");
+		}
+	}
 	mfrc630_MF_deauth();
 }
 //-------------------------------------------------------------------------------------------------
@@ -1122,11 +1123,15 @@ uint8_t mfrc630_iso_14443A_init()
 	count = 0;
 	while (!(mfrc630_read_reg(MFRC630_REG_IRQ1) & 0x40))    //Wait untill global interrupt set
 	{
-		delay(10);
+		delayMicroseconds(500); // 0.5 ms invece di 10ms interi, molto più reattivo
 		count++;
-		if (count > 100)
-			return 0;       // dopo timeou essce comunque
+		if (count > 200) // Timeout totale ~100ms
+			return 0;
 	}
+
+	// Assicuriamoci che il comando sia tornato in IDLE prima di riconfigurare l'hardware
+	mfrc630_write_reg(MFRC630_REG_COMMAND, MFRC630_CMD_IDLE);
+
 	mfrc630_write_reg(MFRC630_REG_IRQ0EN, 0x00);
 	mfrc630_write_reg(MFRC630_REG_IRQ1EN, 0x00);
 

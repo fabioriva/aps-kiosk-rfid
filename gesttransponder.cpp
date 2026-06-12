@@ -616,29 +616,32 @@ void* GestTransponder(void* args) {
 					{
 						if (IsLeggiDatiTransponder() == true)
 						{
-							SetTimeout(&TimerResetTransponderMs, TEMPO_RESET_TRANSPONDER_MS);
-							TesseraOk = true;
-							BloccoDatiIn.Struttura.FlagTesseraPresente = true;
-							strcpy(log_str, "Uid: ");
-							strcpy(DataToSend, "Rfid ");
-							for (i = 0; i < BloccoDatiIn.Struttura.DimUidTessera; i++)
-							{
-								sprintf(tempstr, "%02X", BloccoDatiIn.Struttura.Uid[i]);
-								strcat(DataToSend, tempstr);
-								strcat(log_str, tempstr);
+							if ((BloccoDatiIn.Struttura.DimUidTessera < MAX_DIM_UID) && (FlagNewTessera == FALSE)) {
+								// se dim uid valido e tessera precedente già invita
+								SetTimeout(&TimerResetTransponderMs, TEMPO_RESET_TRANSPONDER_MS);
+								TesseraOk = true;
+								BloccoDatiIn.Struttura.FlagTesseraPresente = true;
+								strcpy(log_str, "Uid: ");
+								strcpy(DataToSend, "Rfid ");
+								for (i = 0; i < BloccoDatiIn.Struttura.DimUidTessera; i++)
+								{
+									sprintf(tempstr, "%02X", BloccoDatiIn.Struttura.Uid[i]);
+									strcat(DataToSend, tempstr);
+									strcat(log_str, tempstr);
+								}
+								strcat(log_str, "   Codice: ");
+								strcat(DataToSend, " ");
+								for (i = 0; i < DIM_CODICE_TESSERA; i++)
+								{
+									sprintf(tempstr, "%02X", BloccoDatiIn.Struttura.CodiceTessera[i]);
+									strcat(DataToSend, tempstr);
+									strcat(log_str, tempstr);
+								}
+								LOG_I(log_str);
+								ComponiPost(DataToSend, 250);
+								FlagNewTessera = true;
+								BeepTessera();
 							}
-							strcat(log_str, "   Codice: ");
-							strcat(DataToSend, " ");
-							for (i = 0; i < DIM_CODICE_TESSERA; i++)
-							{
-								sprintf(tempstr, "%02X", BloccoDatiIn.Struttura.CodiceTessera[i]);
-								strcat(DataToSend, tempstr);
-								strcat(log_str, tempstr);
-							}
-							LOG_I(log_str);
-							ComponiPost(DataToSend, 250);
-							FlagNewTessera = true;
-							BeepTessera();
 						}
 						i = 10;
 					}
