@@ -1026,6 +1026,19 @@ uint8_t mfrc630_MF_write_block(uint8_t block_address, const uint8_t* source)
 //------------------------------------------------------------------------------
 void mfrc630_MF_deauth()
 {
+	// 1. Invia il comando HALT alla tessera (Standard ISO14443-3)
+	uint8_t halt_cmd[2] = { 0x50, 0x00 }; // Comando HLTA
+
+	// Disattiva il CRC in ricezione perché la tessera non risponde a HLTA
+	mfrc630_write_reg(MFRC630_REG_TXCRCPRESET, MFRC630_RECOM_14443A_CRC | MFRC630_CRC_ON);
+	mfrc630_write_reg(MFRC630_REG_RXCRCCON, MFRC630_CRC_OFF);
+
+	// Invia i 2 byte di Halt
+	mfrc630_cmd_transceive(halt_cmd, 2);
+	delay(2); // Piccolo delay per far propagare il comando RF
+	mfrc630_cmd_idle();
+
+	// 2. Disattiva lo stato di autenticazione nel chip
 	mfrc630_write_reg(MFRC630_REG_STATUS, 0);
 }
 //------------------------------------------------------------------------------
@@ -1096,8 +1109,11 @@ uint8_t mfrc630_iso_14443A_init()
 
 	mfrc630_write_reg(MFRC630_REG_WATERLEVEL, 0xFE);        //Set WaterLevel =(FIFO length -1),cause fifo length has been set to 255=0xff,so water level is oxfe
 	mfrc630_write_reg(MFRC630_REG_RXBITCTRL, 0x80);         //RxBitCtrl_Reg(0x0c)  Received bit after collision are replaced with 1.
-	mfrc630_write_reg(MFRC630_REG_DRVMOD, 0x80);            //DrvMod reg(0x28), Tx2Inv=1,Inverts transmitter 1 at TX1 pin
-	mfrc630_write_reg(MFRC630_REG_TXAMP, 0x00);             // TxAmp_Reg(0x29),output amplitude  0: TVDD -100 mV(maxmum)
+	//mfrc630_write_reg(MFRC630_REG_DRVMOD, 0x80);            //DrvMod reg(0x28), Tx2Inv=1,Inverts transmitter 1 at TX1 pin
+	//mfrc630_write_reg(MFRC630_REG_TXAMP, 0x00);             // TxAmp_Reg(0x29),output amplitude  0: TVDD -100 mV(maxmum)
+	mfrc630_write_reg(MFRC630_REG_DRVMOD, 0x8E);			// Configura il driver di modulazione
+	mfrc630_write_reg(MFRC630_REG_TXAMP, 0x0A);				// ABBASSA LA POTENZA DELL'ANTENNA
+	
 	mfrc630_write_reg(MFRC630_REG_DRVCON, 0x01);            // TxCon register (address 2Ah),TxEnvelope
 	mfrc630_write_reg(MFRC630_REG_TXL, 0x05);               //
 	mfrc630_write_reg(MFRC630_REG_RXSOFD, 0x00);            //
@@ -1152,8 +1168,8 @@ uint8_t mfrc630_iso_14443A_init()
 	mfrc630_write_reg(MFRC630_REG_RXCTRL, 0x04);               // Set Rx Baudrate 106 kBaud
 
 	mfrc630_write_reg(MFRC630_REG_RXTHRESHOLD, 0x32);        // Set min-levels for Rx and phase shift
-	//mfrc630_write_reg(MFRC630_REG_RXANA, 0x0A);			 // rcv_gain = 2, rcv_hpcf = 2 -> fl=157 kHz, fu=2.6MHz, gain=49DB, bandwith=2.4MHz
-	mfrc630_write_reg(MFRC630_REG_RXANA, 0x0B);				 // rcv_gain = 3, rcv_hpcf = 2 -> fl=272 kHz, fu=3.0MHz, gain=41DB, bandwith=2.7MHz
+	mfrc630_write_reg(MFRC630_REG_RXANA, 0x0A);			 // rcv_gain = 2, rcv_hpcf = 2 -> fl=157 kHz, fu=2.6MHz, gain=49DB, bandwith=2.4MHz
+	//mfrc630_write_reg(MFRC630_REG_RXANA, 0x0B);				 // rcv_gain = 3, rcv_hpcf = 2 -> fl=272 kHz, fu=3.0MHz, gain=41DB, bandwith=2.7MHz
 	mfrc630_write_reg(MFRC630_REG_RXWAIT, 0x90);             // Set Rx waiting time
 	mfrc630_write_reg(MFRC630_REG_TXWAITCTRL, 0xC0);
 	mfrc630_write_reg(MFRC630_REG_TXWAITLO, 0x0B);

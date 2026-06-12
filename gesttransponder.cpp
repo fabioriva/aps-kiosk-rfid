@@ -641,9 +641,9 @@ void* GestTransponder(void* args) {
 								ComponiPost(DataToSend, 250);
 								FlagNewTessera = true;
 								BeepTessera();
+								i = 10;
 							}
 						}
-						i = 10;
 					}
 					else
 					{

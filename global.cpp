@@ -95,7 +95,7 @@ uint8_t NibbleToInt(uint8_t nh, uint8_t nl)
 void BeepTessera(void)
 {
 	// buzzer attivo basso
-	//digitalWrite(BUZZER, LOW);
+	digitalWrite(BUZZER, LOW);
 	delay(250);
 	digitalWrite(BUZZER, HIGH);
 }
