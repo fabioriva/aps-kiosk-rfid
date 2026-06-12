@@ -484,7 +484,7 @@ uint16_t mfrc630_iso14443a_REQA()
 //------------------------------------------------------------------------------
 uint16_t mfrc630_iso14443a_WUPA_REQA(uint8_t instruction)
 {
-	uint8_t irq0, rx_len;
+	uint8_t irq0, rx_len, irq1_value;
 	uint8_t res_b[2];
 	// configure a timeout timer.
 	uint8_t timer_for_timeout = 0;
@@ -527,9 +527,21 @@ uint16_t mfrc630_iso14443a_WUPA_REQA(uint8_t instruction)
 	// Go into send, then straight after in receive.
 	mfrc630_cmd_transceive(send_req, 1);
 	MFRC630_PRINTF("Sending REQA\n");
-	mfrc630_wait_irq(timer_for_timeout, "Sending REQA");
+	irq1_value = mfrc630_wait_irq(timer_for_timeout, "Sending REQA");
 	MFRC630_PRINTF("After waiting for answer\n");
 	mfrc630_cmd_idle();
+
+	if (!(irq1_value & MFRC630_IRQ1_GLOBAL_IRQ)) {
+		// Verifichiamo SE il fallimento è dovuto al TIMER HARDWARE del chip (Situazione Normale: nessuna tessera)
+		if (irq1_value & (1 << timer_for_timeout)) {
+			MFRC630_PRINTF("REQA: Nessuna risposta dalla tessera (Timeout Hardware del chip).\n");
+		}
+		// Altrimenti è il TIMEOUT SOFTWARE (Situazione Anomala: SPI sfasata o CPU lenta dopo inattività)
+		else {
+			LOG_E((char*)"REQA: Timeout di Sicurezza Software! Bus SPI sfasato o chip bloccato.");
+		}
+		return 0; // Abortiamo in totale sicurezza
+	}
 
 	// if no Rx IRQ, or if there's an error somehow, return 0
 	irq0 = mfrc630_irq0();
@@ -556,7 +568,7 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 {
 	uint8_t timer_for_timeout, cascade_level, message_length, collision_n;
 	uint8_t irq0, error, coll, rxalign, rx_len, buf[5], collision_pos, choice_pos, selection;
-	uint8_t rbx, bcc_val, bcc_calc, irq0_value, sak_len, sak_value, UIDn;
+	uint8_t rbx, bcc_val, bcc_calc, irq1_value, irq0_value, sak_len, sak_value, UIDn;
 
 	mfrc630_cmd_idle();
 	// mfrc630_AN1102_recommended_registers_no_transmitter(MFRC630_PROTO_ISO14443A_106_MILLER_MANCHESTER);
@@ -652,8 +664,13 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 			MFRC630_PRINTF("\n");
 
 			mfrc630_cmd_transceive(send_req, message_length);
-			mfrc630_wait_irq(timer_for_timeout, "Select transceive");
+			irq1_value = mfrc630_wait_irq(timer_for_timeout, "Select transceive");
 			mfrc630_cmd_idle();
+
+			if (!(irq1_value & MFRC630_IRQ1_GLOBAL_IRQ)) {
+				LOG_E((char*)"Select transceive fallito (Timeout IRQ). Abortisco la selezione UID.");
+				return 0; // Esci in sicurezza, la memoria è salva e il chip è in Idle
+			}
 
 			// next up, we have to check what happened.
 			irq0 = mfrc630_irq0();
@@ -735,8 +752,18 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 			MFRC630_PRINTF("\n");
 			// move the buffer into the uid at this level, but OR the result such that
 			// we do not lose the bit we just set if we have a collision.
+			int base_idx = known_bits / 8;
+			// Spostiamo il buffer dentro l'uid a questo livello con controllo dei limiti dello stack
 			for (rbx = 0; (rbx < rx_len); rbx++) {
-				uid_this_level[(known_bits / 8) + rbx] |= buf[rbx];
+				int target_idx = base_idx + rbx;
+				// PROTEZIONE ANTI-SEGFAULT: send_req ha spazio solo per indici da 0 a 4
+				if (target_idx >= 0 && target_idx < 5) {
+					uid_this_level[target_idx] |= buf[rbx];
+				}
+				else {
+					LOG_E((char*)"Tentativo di Stack Smashing evitato in mfrc630_iso14443a_select!");
+					return 0; // Interrompe immediatamente la funzione corrotta per salvare il programma
+				}
 			}
 			known_bits = uint8_t(known_bits + collision_pos);
 			MFRC630_PRINTF("known_bits: %hhX\n", known_bits);
@@ -783,8 +810,13 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 		mfrc630_print_block(send_req, message_length);
 		MFRC630_PRINTF("\n");
 
-		mfrc630_wait_irq(timer_for_timeout, "Select send_req");
+		irq1_value = mfrc630_wait_irq(timer_for_timeout, "Select send_req");
 		mfrc630_cmd_idle();
+
+		if (!(irq1_value & MFRC630_IRQ1_GLOBAL_IRQ)) {
+			LOG_E((char*)"Select send_req (SAK) fallito (Timeout IRQ). Abortisco.");
+			return 0;
+		}
 
 		// Check the source of exiting the loop.
 		irq0_value = mfrc630_irq0();
@@ -1109,11 +1141,10 @@ uint8_t mfrc630_iso_14443A_init()
 
 	mfrc630_write_reg(MFRC630_REG_WATERLEVEL, 0xFE);        //Set WaterLevel =(FIFO length -1),cause fifo length has been set to 255=0xff,so water level is oxfe
 	mfrc630_write_reg(MFRC630_REG_RXBITCTRL, 0x80);         //RxBitCtrl_Reg(0x0c)  Received bit after collision are replaced with 1.
-	//mfrc630_write_reg(MFRC630_REG_DRVMOD, 0x80);            //DrvMod reg(0x28), Tx2Inv=1,Inverts transmitter 1 at TX1 pin
+	mfrc630_write_reg(MFRC630_REG_DRVMOD, 0x80);            //DrvMod reg(0x28), Tx2Inv=1,Inverts transmitter 1 at TX1 pin
 	//mfrc630_write_reg(MFRC630_REG_TXAMP, 0x00);             // TxAmp_Reg(0x29),output amplitude  0: TVDD -100 mV(maxmum)
-	mfrc630_write_reg(MFRC630_REG_DRVMOD, 0x8E);			// Configura il driver di modulazione
-	mfrc630_write_reg(MFRC630_REG_TXAMP, 0x0A);				// ABBASSA LA POTENZA DELL'ANTENNA
-	
+	mfrc630_write_reg(MFRC630_REG_TXAMP, 0x0F);				// ABBASSA LA POTENZA DELL'ANTENNA
+
 	mfrc630_write_reg(MFRC630_REG_DRVCON, 0x01);            // TxCon register (address 2Ah),TxEnvelope
 	mfrc630_write_reg(MFRC630_REG_TXL, 0x05);               //
 	mfrc630_write_reg(MFRC630_REG_RXSOFD, 0x00);            //
