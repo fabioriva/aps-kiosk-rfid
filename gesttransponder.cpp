@@ -616,7 +616,7 @@ void* GestTransponder(void* args) {
 					{
 						if (IsLeggiDatiTransponder() == true)
 						{
-							if ((BloccoDatiIn.Struttura.DimUidTessera < MAX_DIM_UID) && (FlagNewTessera == FALSE)) {
+							if ((BloccoDatiIn.Struttura.DimUidTessera < MAX_DIM_UID)){	// && (FlagNewTessera == FALSE)) {
 								// se dim uid valido e tessera precedente già invita
 								SetTimeout(&TimerResetTransponderMs, TEMPO_RESET_TRANSPONDER_MS);
 								TesseraOk = true;

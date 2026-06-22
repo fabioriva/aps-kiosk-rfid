@@ -43,24 +43,36 @@ static uint8_t SPI_transfer(uint8_t value)
 {
 	uint8_t result, mask;
 	result = 0;
+
 	for (mask = 0x80; mask != 0; mask = uint8_t(mask >> 1))
 	{
-		// Write and read 8 bit, starting form MSB
+		// 1. Scrivi il bit
 		if (value & mask)
-			digitalWrite(SPI_MOSI, HIGH); 	// Write single 1
-		else    digitalWrite(SPI_MOSI, LOW);	// Write single 0
-		Nop();	Nop();	Nop();	Nop();
-		digitalWrite(SPI_SCK, HIGH); 	Nop();	// Clock active on rising edge
-		Nop(); Nop(); Nop();
+			digitalWrite(SPI_MOSI, HIGH);
+		else
+			digitalWrite(SPI_MOSI, LOW);
+
+		// Pausa reale per far viaggiare il dato lungo i 40 cm
+		delayMicroseconds(2);
+
+		// 2. Fronte di salita del Clock
+		digitalWrite(SPI_SCK, HIGH);
+
+		// Pausa reale: diamo tempo al CLRC663 di rispondere sul MISO
+		delayMicroseconds(2);
+
+		// 3. Leggi il MISO bello stabile
 		if (digitalRead(SPI_MISO) == HIGH)
 			result = result | mask;
-		Nop();	Nop();	Nop();	Nop();
-		digitalWrite(SPI_SCK, LOW); // Clock to idle
-		Nop();
+
+		// 4. Riporta il Clock a riposo
+		digitalWrite(SPI_SCK, LOW);
+
+		// Pausa di scarica capacitiva prima del prossimo bit
+		delayMicroseconds(1);
 	}
 	return result;
 }
-//------------------------------------------------------------------------------
 static void SPI_endTransaction(void)
 {
 	digitalWrite(SPI_CS, HIGH);
