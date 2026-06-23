@@ -323,7 +323,7 @@ uint8_t mfrc630_wait_irq(uint8_t timer_num, const char* context_name)
 
 		// Watchdog software anti-congelamento
 		safety_counter++;
-		if (safety_counter > 500)	// circa 25Ms
+		if (safety_counter > 1000)	// circa 50Ms
 		{
 			snprintf(error_msg, sizeof(error_msg), "Timeout di sicurezza software in [%s]!", context_name);
 			LOG_E(error_msg);
@@ -748,10 +748,20 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 				// We have no error, nor received an RX. No response, no card?
 				return 0;
 			}
+
 			MFRC630_PRINTF("collision_pos: %hhX\n", collision_pos);
 
 			// read the UID Cln so far from the buffer.
 			rx_len = uint8_t(mfrc630_fifo_length());
+
+			// CAP DI SICUREZZA 1: La FIFO per l'anticollisione di un singolo livello cascata 
+			// non deve mai superare i 5 byte (4 byte UID + 1 byte BCC). 
+			// Se il chip dichiara di più a causa di disturbi hardware, forziamo il limite.
+			if (rx_len > 5) {
+				MFRC630_PRINTF("AVVISO: rx_len anomalo (%hhd), limitato a 5 per disturbo hardware.\n", rx_len);
+				rx_len = 5;
+			}
+
 			uint8_t eff_len = rx_len < 5 ? rx_len : 5;
 			mfrc630_read_fifo(buf, rx_len, eff_len);
 
@@ -762,21 +772,27 @@ uint8_t mfrc630_iso14443a_select(uint8_t* uid, uint8_t* sak)
 			MFRC630_PRINTF("uid_this_level kb %hhd long: ", known_bits);
 			mfrc630_print_block(uid_this_level, uint16_t((known_bits + 8 - 1) / 8));
 			MFRC630_PRINTF("\n");
-			// move the buffer into the uid at this level, but OR the result such that
-			// we do not lose the bit we just set if we have a collision.
+
 			int base_idx = known_bits / 8;
-			// Spostiamo il buffer dentro l'uid a questo livello con controllo dei limiti dello stack
-			for (rbx = 0; (rbx < rx_len); rbx++) {
+
+			// Spostiamo il buffer dentro l'uid a questo livello con protezione dinamica
+			for (rbx = 0; rbx < rx_len; rbx++) {
 				int target_idx = base_idx + rbx;
-				// PROTEZIONE ANTI-SEGFAULT: send_req ha spazio solo per indici da 0 a 4
+
+				// CAP DI SICUREZZA 2: send_req ha spazio totale di 7 byte. 
+				// uid_this_level punta a send_req[2], quindi ha esattamente 5 byte utili (indici 0,1,2,3,4).
 				if (target_idx >= 0 && target_idx < 5) {
 					uid_this_level[target_idx] |= buf[rbx];
 				}
 				else {
-					LOG_E((char*)"Tentativo di Stack Smashing evitato in mfrc630_iso14443a_select!");
-					return 0; // Interrompe immediatamente la funzione corrotta per salvare il programma
+					// Invece di abortire distruggendo la transazione, ignoriamo il byte di rumore 
+					// e logghiamo l'evento per non interrompere il ciclo di lettura se recuperabile.
+					MFRC630_PRINTF("Filtro RF: Ignorato byte orfano in target_idx %d (Massimo ammesso: 4)\n", target_idx);
+					break;
 				}
 			}
+
+			// Aggiorna i bit conosciuti basandoti sulla posizione di collisione calcolata dal chip
 			known_bits = uint8_t(known_bits + collision_pos);
 			MFRC630_PRINTF("known_bits: %hhX\n", known_bits);
 
